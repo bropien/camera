@@ -8,11 +8,10 @@ export default function App() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="auto" />
-
       <AboutScreen />
     </SafeAreaView>
   );
-}
+} 
 
 const styles = StyleSheet.create({
   container: {

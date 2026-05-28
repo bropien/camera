@@ -6,8 +6,9 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  ActivityIndicator,
 } from "react-native";
-
+import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -15,14 +16,22 @@ export default function AboutScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [profilPhoto, setProfilPhoto] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [mahasiswa, setMahasiswa] = useState(null);
 
   const cameraRef = useRef(null);
-
+  const NIM_USER = "0320240090";
+  const BASE_URL = "http://10.1.11.239:9000/api/mahasiswa";
   const STORAGE_KEY = "@profil_photo";
 
   useEffect(() => {
     loadProfilPhoto();
   }, []);
+
+  useEffect(() => {
+    fetchMahasiswa();
+  },[]);
+
 
   // Load foto
   const loadProfilPhoto = async () => {
@@ -39,64 +48,88 @@ export default function AboutScreen() {
 
   // Ambil foto
   const takePicture = async () => {
-    try {
       if (cameraRef.current) {
         const photo = await cameraRef.current.takePictureAsync({
           quality: 0.5,
         });
-
-        setProfilPhoto(photo.uri);
-
-        await AsyncStorage.setItem(STORAGE_KEY, photo.uri);
-
-        setIsCameraOpen(false);
-
-        Alert.alert("Berhasil", "Foto berhasil disimpan");
-      }
-    } catch (error) {
-      console.log(error);
-
-      Alert.alert("Error", "Gagal mengambil foto");
+        uploadPhoto(photo.uri);
     }
   };
 
-  // Loading permission
-  if (!permission) {
-    return (
-      <View style={styles.container}>
-        <Text>Memuat izin kamera...</Text>
-      </View>
-    );
-  }
+  const fetchMahasiswa = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/${NIM_USER}`);
+      if (response.ok) {
+        const json = await response.json();
+        console.log("Response JSON:", json);
+        setMahasiswa(json.data); // <-- ambil field data
+      } else {
+        console.log("Response not OK:", response.status);
+      }
+    } catch (error) {
+      console.log("Fetch error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  // Tampilan kamera
+
+  const uploadPhoto = async (uri) => {
+    await AsyncStorage.setItem(STORAGE_KEY, uri);
+    setProfilPhoto(uri);
+
+    setIsLoading(true);
+
+    const formData = new FormData();
+    formData.append("nim", NIM_USER);
+    formData.append("nama", "Muhammad Zakky Raihan");
+
+    formData.append('foto', {
+        uri:uri,
+        name: 'selfie.jpg',
+        type: 'image/jpeg'
+    });
+
+    try {
+        const response = await fetch(`${BASE_URL}/upload`, {
+            method: "POST",
+            body: formData,
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        });
+
+        if(response.ok) {
+            Alert.alert("Sukses", "Foto profil berhasil diunggah");
+            fetchMahasiswa();
+        }
+    } catch (error) {
+        Alert.alert("Error", "Gagal mengunggah foto profil");
+    } finally {
+        setIsLoading(false);
+        setIsCameraOpen(false);
+    }
+  };
+
+  if (isLoading) 
+    return <ActivityIndicator size="large" style={{flex:1}} />;
+
   if (isCameraOpen) {
-    if (!permission.granted) {
-      return (
-        <View style={styles.container}>
-          <Text style={styles.infoText}>
-            Izin kamera diperlukan
-          </Text>
-
-          <TouchableOpacity
-            style={styles.button}
-            onPress={requestPermission}
-          >
-            <Text style={styles.buttonText}>
-              Izinkan Kamera
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.buttonDanger}
-            onPress={() => setIsCameraOpen(false)}
-          >
-            <Text style={styles.buttonText}>
-              Batal
-            </Text>
-          </TouchableOpacity>
-        </View>
-      );
+    if (!permission) return <View style={styles.container}>
+        <Text>Memuat perizinan....</Text>
+    </View>
+    if (!permission.granted){
+        return (
+            <View style={styles.container}>
+                <Text style={styles.infoText}>Kami butuh akses kamera untuk selfie profil</Text>
+                <TouchableOpacity style={styles.button} onPress={requestPermission}>
+                    <Text style={styles.buttonText}>Izinkan Kamera</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.buttonDanger} onPress={() => setIsCameraOpen(false)}>
+                    <Text style={styles.buttonText}>Batal</Text>
+                </TouchableOpacity>
+            </View>
+        );
     }
 
     return (
@@ -106,27 +139,14 @@ export default function AboutScreen() {
           style={StyleSheet.absoluteFillObject}
           facing="front"
         >
-          <View style={styles.cameraOverlay}>
-            <View style={styles.captureContainer}>
-              <TouchableOpacity
-                style={styles.captureButton}
-                onPress={takePicture}
-              >
-                <Text style={styles.captureButtonText}>
-                  Ambil Foto
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setIsCameraOpen(false)}
-              >
-                <Text style={styles.buttonText}>
-                  Batal
-                </Text>
-              </TouchableOpacity>
+            <View style={styles.cameraOverlay}>
+                <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
+                    <Text style={styles.captureButtonText}>Ambil & kirim</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setIsCameraOpen(false)}>
+                    <Text style={{color:'white', marginBottom:20}}>Batal</Text>
+                </TouchableOpacity>
             </View>
-          </View>
         </CameraView>
       </View>
     );
@@ -136,42 +156,22 @@ export default function AboutScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.profileCard}>
-        <View style={styles.imageContainer}>
-          {profilPhoto ? (
-            <Image
-              source={{ uri: profilPhoto }}
-              style={styles.profilImage}
-            />
-          ) : (
-            <View style={styles.placeholderImage}>
-              <Text style={styles.placeholderText}>
-                Profile Photo
-              </Text>
-            </View>
-          )}
-        </View>
+        <Image
+          source={
+            profilPhoto
+              ? { uri: profilPhoto }
+              : mahasiswa?.fotoMhs
+                ? { uri: `data:image/jpeg;base64,${mahasiswa.fotoMhs}` }
+                : { uri: 'https://i.pravatar.cc/150?img=3' }
+          }
+          style={styles.profilImage}
+        />
 
-        <Text style={styles.nameText}>
-          Muhammad Zakky Raihan
-        </Text>
+        <Text style={styles.namaText}>{mahasiswa?.namaMhs || "Mahasiswa"}</Text>
+        <Text style={styles.nimText}>{NIM_USER}</Text>
 
-        <Text style={styles.nimText}>
-          0320240090
-        </Text>
-
-        <Text style={styles.programText}>
-          Teknologi Rekayasa Perangkat Lunak
-        </Text>
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => setIsCameraOpen(true)}
-        >
-          <Text style={styles.buttonText}>
-            {profilPhoto
-              ? "Ganti Foto Profil"
-              : "Ambil Foto Profil"}
-          </Text>
+        <TouchableOpacity style={styles.button} onPress={()=> setIsCameraOpen(true)}>
+            <Text style={styles.buttonText}>ganti foto selfie</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -179,25 +179,20 @@ export default function AboutScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f4f6f9",
-    justifyContent: "center",
-    alignItems: "center",
+  container: { 
+    flex: 1, 
+    backgroundColor: '#f4f4f9', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
   },
 
-  profileCard: {
-    backgroundColor: "white",
-    width: "85%",
-    padding: 30,
-    borderRadius: 15,
-    alignItems: "center",
-
-    elevation: 5,
-
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
+  profileCard: { 
+    backgroundColor: 'white', 
+    width: '85%', 
+    padding: 30, 
+    borderRadius: 20, 
+    alignItems: 'center', 
+    elevation: 5 
   },
 
   imageContainer: {
