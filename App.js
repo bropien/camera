@@ -1,20 +1,47 @@
 import React from "react";
-import { StatusBar } from "expo-status-bar";
-import { SafeAreaView, StyleSheet } from "react-native";
+import { NavigationContainer } from "@react-navigation/native";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { MaterialIcons } from "@expo/vector-icons";
 
-import AboutScreen from "./pages/AboutScreen";
+import HomeScreen from "./pages/HomeScreen";
+import LocationScreen from "./pages/LocationScreen";
+
+const Tab = createBottomTabNavigator();
 
 export default function App() {
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="auto" />
-      <AboutScreen />
-    </SafeAreaView>
-  );
-} 
+    <NavigationContainer>
+      <Tab.Navigator
+        screenOptions={{
+          tabBarActiveTintColor: "#0056A0",
+          headerShown: false,
+        }}
+      >
+        <Tab.Screen
+          name="Home"
+          component={HomeScreen}
+          options={{
+            tabBarIcon: ({ color, size }) => (
+              <MaterialIcons name="home" size={size} color={color} />
+            ),
+          }}
+        />
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
+        <Tab.Screen
+          name="Location"
+          component={LocationScreen}
+          options={{
+            tabBarLabel: "Lokasi",
+            tabBarIcon: ({ color, size }) => (
+              <MaterialIcons
+                name="location-on"
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
+      </Tab.Navigator>
+    </NavigationContainer>
+  );
+}
