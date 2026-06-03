@@ -26,6 +26,17 @@ export const AuthProvider = ({ children }) => {
         setUserData(null);
         await AsyncStorage.removeItem("userData");
     };
+    const loadUser = async () => {
+        const data = await AsyncStorage.getItem("userData");
+
+        console.log("DATA STORAGE:", data);
+
+        if (data) {
+            setUserData(JSON.parse(data));
+        }
+
+        setLoading(false);
+        };
 
     return (
         <AuthContext.Provider value={{ userData, login, logout, loading }}>
